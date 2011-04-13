@@ -15,6 +15,7 @@ class VarnishHandler(Telnet):
         if isinstance(host_port_timeout, basestring):
             host_port_timeout = host_port_timeout.split(':')
         Telnet.__init__(self, *host_port_timeout)
+        self.fetch(None)
         
     def quit(self): self.close()
         
@@ -23,13 +24,18 @@ class VarnishHandler(Telnet):
         Run a command on the Varnish backend and return the result
         return value is a tuple of ((status, length), content)
         """
-        logging.debug('SENT: %s: %s' % (self.host, command))
-        self.write('%s\n' % command)
-        (status, length), content = map(int, self.read_until('\n').split()), ''
+        if command:
+            logging.debug('SENT: %s: %s' % (self.host, command))
+            self.write('%s\n' % command)
+        nextline = ''
+        while not nextline:
+            nextline = self.read_until('\n')
+        assert nextline != ''
+        (status, length), content = map(int, nextline.split()), ''
         assert status == 200, 'Bad response code: %s %s' % (status, self.read_until('\n').rstrip())
         while len(content) < length:
             content += self.read_until('\n')
-        logging.debug('RECV: %s: %dB %s' % (status,length,content[:30]))
+        logging.debug('RECV: %s: %dB %s' % (status,length,content))
         return (status, length), content
         
     # Service control methods
